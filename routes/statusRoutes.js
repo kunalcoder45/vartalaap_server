@@ -226,12 +226,9 @@
 
 
 
-
-
-
 const express = require('express');
 const router = express.Router();
-const upload = require('../middleware/uploadStatus');
+const upload = require('../middleware/uploadStatus'); // This file seems to contain your multer setup
 const verifyToken = require('../middleware/verifyFirebaseToken');
 
 // Import all controller functions
@@ -245,8 +242,8 @@ const {
     cleanupExpiredStatuses
 } = require('../controllers/statusController');
 
-const { getLatestStatusMedia } = require('../controllers/getLatestStatusMedia');
-const attachMongoUser = require('../middleware/attachMongoUser');
+// Make sure getManyUserDetails is NOT here if you put it in routes/user.js
+// const { getManyUserDetails } = require('../controllers/userController'); // REMOVE THIS LINE IF YOU CREATED routes/user.js
 
 // Upload status
 router.post('/upload', verifyToken, upload.single('media'), uploadStatus);
@@ -255,12 +252,10 @@ router.post('/upload', verifyToken, upload.single('media'), uploadStatus);
 router.get('/', verifyToken, getStatuses);
 
 // Get specific user's statuses
-// router.get('/user/:userId', verifyToken, getStatusByUserId);
-
 router.get('/user/:userId', verifyToken, getStatusByUserId);
 
-// View/stream status media by userId
-router.get('/view/:userId', verifyToken, getLatestStatusMedia);
+// View/stream status media by userId (this seems to be for a single latest media, check its controller if it causes issues)
+// router.get('/view/:userId', verifyToken, getLatestStatusMedia); // Uncomment if needed, but its purpose isn't clear with StatusViewer
 
 // Mark status as viewed
 router.post('/view/:statusId', verifyToken, markStatusAsViewed);
@@ -274,7 +269,6 @@ router.get('/analytics/:statusId', verifyToken, getStatusAnalytics);
 // Admin/utility route to cleanup expired statuses
 router.post('/cleanup', verifyToken, async (req, res) => {
     try {
-        // You might want to add admin check here
         const deletedCount = await cleanupExpiredStatuses();
         res.json({
             message: 'Cleanup completed',
@@ -284,5 +278,8 @@ router.post('/cleanup', verifyToken, async (req, res) => {
         res.status(500).json({ error: 'Cleanup failed' });
     }
 });
+
+// REMOVE THIS LINE if you created routes/user.js for /users/details
+// router.post('/users/details', verifyToken, getManyUserDetails);
 
 module.exports = router;

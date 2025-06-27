@@ -42,7 +42,7 @@
 // const upload = multer({ storage, fileFilter });
 
 // module.exports = upload;
-
+// server/middleware/uploadStatus.js (Your provided Multer config)
 const multer = require('multer');
 const path = require('path');
 
