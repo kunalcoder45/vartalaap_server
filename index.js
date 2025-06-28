@@ -79,8 +79,8 @@
 
 // // --- Serve Static Files ---
 // // This serves anything inside 'uploads' directly under the /uploads URL path
-// // For example, an image at /uploads/statuses/some_image.jpg will be accessible at http://localhost:5001/uploads/statuses/some_image.jpg
-// // And a file at /uploads/profile_pics/user1.jpg would be accessible at http://localhost:5001/uploads/profile_pics/user1.jpg
+// // For example, an image at /uploads/statuses/some_image.jpg will be accessible at https://vartalaap-r36o.onrender.com/uploads/statuses/some_image.jpg
+// // And a file at /uploads/profile_pics/user1.jpg would be accessible at https://vartalaap-r36o.onrender.com/uploads/profile_pics/user1.jpg
 // app.use('/uploads', express.static(uploadsBaseDir));
 // // If you have specific public avatars that are not part of 'uploads'
 // app.use('/avatars', express.static(avatarsPublicDir));
@@ -302,16 +302,13 @@
 
 
 
-
-// server.js (or index.js)
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
-const fs = require('fs');
+const fs = require('fs'); // Use fs for sync mkdir checks
 require('dotenv').config();
 require('./firebase-admin-config');
 
@@ -331,48 +328,61 @@ const PORT = process.env.PORT || 5001;
 
 // --- MongoDB Connection ---
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB Connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+    .then(() => console.log('MongoDB Connected'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
 // --- Ensure Directories Exist ---
+// This is the base directory for all user-uploaded content (avatars, statuses, etc.)
 const uploadsBaseDir = path.join(__dirname, 'uploads');
-const statusesUploadDir = path.join(uploadsBaseDir, 'statuses');
-const avatarsPublicDir = path.join(__dirname, 'public', 'avatars');
+// This is for static default assets like 'userLogo.png'
+const defaultAvatarsPublicDir = path.join(__dirname, 'public', 'avatars');
 
 const ensureDirectoryExists = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`Created directory: ${dir}`);
-  }
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`[App] Created directory: ${dir}`);
+    }
 };
 
 ensureDirectoryExists(uploadsBaseDir);
-ensureDirectoryExists(statusesUploadDir);
-ensureDirectoryExists(avatarsPublicDir);
+ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars')); // CRUCIAL: Ensure backend/uploads/avatars exists
+ensureDirectoryExists(path.join(uploadsBaseDir, 'statuses'));
+ensureDirectoryExists(defaultAvatarsPublicDir);
+
 
 // --- Middleware ---
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://49ph994c-3000.inc1.devtunnels.ms',
-  //   process.env.FRONTEND_URL
-  ].filter(Boolean),
-  // origin: '*', // For development, you can restrict this in production
-  credentials: true,
-  exposedHeaders: ['Content-Range', 'Content-Type', 'Content-Length'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: [
+        'http://localhost:3000',
+        'https://49ph994c-3000.inc1.devtunnels.ms', // Your devtunnel
+        process.env.FRONTEND_URL // Use the environment variable for production
+    ].filter(Boolean), // Filter out empty strings if env var is not set
+    credentials: true,
+    exposedHeaders: ['Content-Range', 'Content-Type', 'Content-Length'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --- Static File Serving ---
+// This serves all dynamically uploaded files (including avatars from 'uploads/avatars')
+// at the /uploads URL path.
+// Example: if a file is at backend/uploads/avatars/my_avatar.png,
+// it will be accessible at YOUR_BACKEND_URL/uploads/avatars/my_avatar.png
 app.use('/uploads', express.static(uploadsBaseDir));
-app.use('/avatars', express.static(avatarsPublicDir));
+
+// This serves static, pre-defined avatars (like userLogo.png)
+// at the /avatars URL path.
+// Example: if userLogo.png is at backend/public/avatars/userLogo.png,
+// it will be accessible at YOUR_BACKEND_URL/avatars/userLogo.png
+app.use('/avatars', express.static(defaultAvatarsPublicDir));
+
 
 // --- API Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/user', userRoutes);
+app.use('/api/user', userRoutes); // Often redundant if /api/users covers everything
 app.use('/api/posts', postRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/follow', followRoutes);
@@ -382,12 +392,12 @@ app.use('/api/chats', chatRoutes);
 
 // --- Socket.IO ---
 const io = socketIo(server, {
-  cors: {
-    // origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
+    cors: {
+        origin: process.env.FRONTEND_URL || 'http://localhost:3000', // Use FRONTEND_URL
+        // origin: '*', // AVOID '*' in production. Use specific URLs.
+        methods: ['GET', 'POST'],
+        credentials: true
+    }
 });
 
 require('./socket/socketHandlers')(io); // custom socket logic including calls
@@ -395,42 +405,49 @@ app.set('io', io);
 
 // --- Health Check ---
 app.get('/', (req, res) => {
-  res.send('Unified Social App Backend is Running!');
+    res.send('Unified Social App Backend is Running!');
 });
 
+// --- Debug Uploads Route (Helpful for verifying directory and files) ---
 app.get('/api/debug/uploads', (req, res) => {
-  try {
-    const files = fs.readdirSync(statusesUploadDir);
-    res.json({
-      uploadsPath: statusesUploadDir,
-      files,
-      exists: fs.existsSync(statusesUploadDir)
-    });
-  } catch (error) {
-    res.status(500).json({
-      uploadsPath: statusesUploadDir,
-      error: error.message,
-      exists: fs.existsSync(statusesUploadDir),
-      message: 'Error reading uploads/statuses directory.'
-    });
-  }
+    try {
+        const avatarsFiles = fs.readdirSync(path.join(uploadsBaseDir, 'avatars'));
+        const statusesFiles = fs.readdirSync(path.join(uploadsBaseDir, 'statuses'));
+        res.json({
+            uploadsBasePath: uploadsBaseDir,
+            avatarsPath: path.join(uploadsBaseDir, 'avatars'),
+            statusesPath: path.join(uploadsBaseDir, 'statuses'),
+            avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
+            statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
+            avatarsFiles: avatarsFiles,
+            statusesFiles: statusesFiles,
+        });
+    } catch (error) {
+        res.status(500).json({
+            uploadsBasePath: uploadsBaseDir,
+            error: error.message,
+            message: 'Error reading uploads directories. Check permissions.',
+            avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
+            statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
+        });
+    }
 });
 
 // --- Error Handling ---
 app.use((err, req, res, next) => {
-  console.error('Global Error:', err.stack);
-  res.status(err.statusCode || 500).json({
-    message: err.message || 'Internal Server Error',
-    error: process.env.NODE_ENV === 'development' ? err.stack : {}
-  });
+    console.error('Global Error:', err.stack);
+    res.status(err.statusCode || 500).json({
+        message: err.message || 'Internal Server Error',
+        error: process.env.NODE_ENV === 'development' ? err.stack : {}
+    });
 });
 
 // --- 404 Fallback ---
 app.use((req, res) => {
-  res.status(404).json({ message: `Not Found - ${req.originalUrl}` });
+    res.status(404).json({ message: `Not Found - ${req.originalUrl}` });
 });
 
 server.listen(PORT, () => {
-  console.log(`Server started on port ${PORT}`);
-  console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    console.log(`Server started on port ${PORT}`);
+    console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
 });

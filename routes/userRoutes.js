@@ -10,7 +10,7 @@
 // const attachMongoUser = require('../middleware/attachMongoUser')
 // const userController = require('../controllers/userController');
 
-// const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001'; // Ensure this matches frontend's API_BASE_URL (without /api)
+// const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://vartalaap-r36o.onrender.com'; // Ensure this matches frontend's API_BASE_URL (without /api)
 // const { getFollowDetails } = require('../controllers/userController');
 
 // // Apply authMiddleware to all routes in this router
@@ -20,7 +20,7 @@
 // // Helper function to get default avatar URL
 // const getDefaultAvatarUrl = () => {
 //     // This should match the path where you serve default avatars in server.js
-//     // e.g., http://localhost:5001/avatars/userLogo.png
+//     // e.g., https://vartalaap-r36o.onrender.com/avatars/userLogo.png
 //     return `${BACKEND_URL}/avatars/userLogo.png`;
 // };
 
@@ -162,7 +162,7 @@
 //         // Handle avatar update
 //         if (req.file) {
 //             console.log('PUT_USER_PROFILE_ROUTE: New avatar file uploaded:', req.file.filename);
-            
+
 //             // Check if there's an existing custom avatar that needs to be deleted
 //             // Only delete if it's an uploaded file (starts with the backend URL + /uploads/), not a default avatar or Google photo
 //             if (user.avatarUrl && user.avatarUrl.startsWith(`${BACKEND_URL}/uploads/`)) {
@@ -183,7 +183,7 @@
 //                 // Log that we're replacing a Google/external avatar (no deletion needed)
 //                 console.log('PUT_USER_PROFILE_ROUTE: Replacing external avatar (Google/default) with custom upload:', user.avatarUrl);
 //             }
-            
+
 //             // Set the new avatar URL
 //             user.avatarUrl = `${BACKEND_URL}/uploads/${req.file.filename}`;
 //             console.log('PUT_USER_PROFILE_ROUTE: New avatar set to:', user.avatarUrl);
@@ -322,7 +322,7 @@
 
 // // --- IMPORTANT: Ensure this matches your frontend's MEDIA_BASE_URL ---
 // // This is used to construct full URLs for avatars/media from relative paths
-// const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+// const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://vartalaap-r36o.onrender.com';
 
 // // Helper function to construct full URL for avatars
 // const getFullAvatarUrl = (avatarPath) => {
@@ -332,7 +332,7 @@
 //     }
 //     // Assume it's a relative path to an uploaded file
 //     const cleanedPath = avatarPath.replace(/\\/g, '/'); // Ensure forward slashes
-//     return `${BACKEND_URL}/${cleanedPath}`; // e.g., http://localhost:5001/uploads/image.png
+//     return `${BACKEND_URL}/${cleanedPath}`; // e.g., https://vartalaap-r36o.onrender.com/uploads/image.png
 // };
 
 
@@ -605,7 +605,7 @@
 
 // // --- IMPORTANT: Ensure this matches your frontend's MEDIA_BASE_URL ---
 // // This is used to construct full URLs for avatars/media from relative paths
-// const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+// const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://vartalaap-r36o.onrender.com';
 
 // // Helper function to construct full URL for avatars (moved to controller, but kept here if other routes need it)
 // const getFullAvatarUrl = (avatarPath) => {
@@ -613,7 +613,7 @@
 //         return avatarPath || `${BACKEND_URL}/avatars/userLogo.png`; // Fallback to a default server-side image
 //     }
 //     const cleanedPath = avatarPath.replace(/\\/g, '/');
-//     return `${BACKEND_URL}/${cleanedPath}`; // e.g., http://localhost:5001/uploads/image.png
+//     return `${BACKEND_URL}/${cleanedPath}`; // e.g., https://vartalaap-r36o.onrender.com/uploads/image.png
 // };
 
 // // Apply authMiddleware to all routes in this router that require authentication
@@ -863,30 +863,47 @@
 
 
 
-
-
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User'); // User model
 const authMiddleware = require('../middleware/authMiddleware'); // Your chosen unified authentication middleware
-const upload = require('../middleware/uploadMiddleware'); // Multer setup
+const uploadAvatar = require('../middleware/uploadAvatarMiddleware'); // Multer setup
 const fs = require('fs/promises'); // Use fs.promises for async operations
 const path = require('path');
 
-// Import the userController functions
+// Import the userController functions (assuming they are used elsewhere)
 const userController = require('../controllers/userController');
 
-// --- IMPORTANT: Ensure this matches your frontend's MEDIA_BASE_URL ---
+// --- IMPORTANT: Ensure this matches your frontend's environment variable ---
 // This is used to construct full URLs for avatars/media from relative paths
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'http;//://localhost:5001'; // Default to localhost for local development
+console.log(`[UserRoutes Init] Backend URL configured as: ${BACKEND_URL}`);
+// Helper function to construct full URL for avatars
+// This function needs to be robust for various avatar source types
+const getFullAvatarUrl = (avatarPathFromDB) => {
+    console.log(`[getFullAvatarUrl] Input path from DB: "${avatarPathFromDB}"`);
 
-// Helper function to construct full URL for avatars (moved to controller, but kept here if other routes need it)
-const getFullAvatarUrl = (avatarPath) => {
-    if (!avatarPath || avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
-        return avatarPath || `${BACKEND_URL}/avatars/userLogo.png`; // Fallback to a default server-side image
+    if (!avatarPathFromDB) {
+        // If no avatar is set or path is empty, return the default user logo URL.
+        // This maps to 'backend/public/avatars/userLogo.png' via '/avatars' static route in app.js.
+        const defaultUrl = `${BACKEND_URL}/avatars/userLogo.png`;
+        console.log(`[getFullAvatarUrl] No avatarPathFromDB, returning default URL: "${defaultUrl}"`);
+        return defaultUrl;
     }
-    const cleanedPath = avatarPath.replace(/\\/g, '/');
-    return `${BACKEND_URL}/${cleanedPath}`; // e.g., http://localhost:5001/uploads/image.png
+
+    if (avatarPathFromDB.startsWith('http://') || avatarPathFromDB.startsWith('https://')) {
+        // If the path is already an absolute URL (e.g., from social login), return it as is.
+        console.log(`[getFullAvatarUrl] Path is already an absolute URL, returning: "${avatarPathFromDB}"`);
+        return avatarPathFromDB;
+    }
+
+    // For relative paths stored in the DB (e.g., 'avatars/filename.jpg' or 'statuses/filename.mp4').
+    // We prepend '/uploads/' because that's the URL prefix for the `uploadsBaseDir` static middleware in `app.js`.
+    // Normalize path separators for URLs (Windows uses '\', URLs use '/')
+    const normalizedPath = avatarPathFromDB.replace(/\\/g, '/');
+    const fullUrl = `${BACKEND_URL}/uploads/${normalizedPath}`;
+    console.log(`[getFullAvatarUrl] Converted relative path "${avatarPathFromDB}" to full URL: "${fullUrl}"`);
+    return fullUrl;
 };
 
 // Apply authMiddleware to all routes in this router that require authentication
@@ -902,7 +919,6 @@ router.get('/profile', async (req, res) => {
         const user = req.user; // User is already populated by authMiddleware
 
         if (!user) {
-            // This case should ideally not happen if authMiddleware works as expected
             return res.status(404).json({ message: 'Authenticated user not found in database. Please ensure profile is synced.' });
         }
 
@@ -911,7 +927,7 @@ router.get('/profile', async (req, res) => {
             name: user.name,
             email: user.email,
             bio: user.bio,
-            avatarUrl: getFullAvatarUrl(user.avatarUrl),
+            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Use helper here
             firebaseUid: user.firebaseUid,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
@@ -939,7 +955,7 @@ router.get('/profile/:userId', async (req, res) => {
             name: user.name,
             email: user.email,
             bio: user.bio,
-            avatarUrl: getFullAvatarUrl(user.avatarUrl),
+            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Use helper here
         });
     } catch (error) {
         console.error('GET_SPECIFIC_USER_PROFILE_ROUTE: Error fetching specific user profile:', error.message);
@@ -947,94 +963,107 @@ router.get('/profile/:userId', async (req, res) => {
     }
 });
 
-router.put('/profile', upload.single('avatar'), async (req, res) => {
-    console.log('PUT_USER_PROFILE_ROUTE: Entering profile update route.');
-    console.log('PUT_USER_PROFILE_ROUTE: req.user (from authMiddleware):', req.user ? req.user._id : 'Not populated');
-    console.log('PUT_USER_PROFILE_ROUTE: req.body:', req.body);
-    console.log('PUT_USER_PROFILE_ROUTE: req.file:', req.file);
+// Update authenticated user's profile
+router.put('/profile', uploadAvatar.single('avatar'), async (req, res) => {
+    console.log('[PUT /profile] Entering profile update route.');
+    console.log('[PUT /profile] User ID from authMiddleware (req.user._id):', req.user ? req.user._id : 'Not available');
+    console.log('[PUT /profile] Request Body (name, bio):', req.body);
+    console.log('[PUT /profile] File details from Multer (req.file):', req.file); // Will be undefined if no file uploaded
 
     try {
-        const user = req.user; // User is already populated by authMiddleware
-        const { name, bio } = req.body;
+        const user = req.user; // Authenticated user from authMiddleware
 
         if (!user) {
+            console.warn('[PUT /profile] User not authenticated during profile update attempt.');
+            // If authentication failed, clean up any uploaded file immediately
             if (req.file) {
-                await fs.unlink(req.file.path).catch(err => console.error('Error deleting temp file for non-existent user:', err));
+                await fs.unlink(req.file.path).catch(err => console.error('[PUT /profile] Error deleting newly uploaded file due to unauthenticated user:', err));
             }
-            return res.status(404).json({ message: 'User not found for update.' });
+            return res.status(401).json({ message: 'Authentication required to update profile.' });
         }
 
+        const { name, bio } = req.body;
+
+        // Update name and bio if provided in the request body
         if (name !== undefined) {
             user.name = name;
+            console.log(`[PUT /profile] Updating name to: "${name}"`);
         }
         if (bio !== undefined) {
             user.bio = bio;
+            console.log(`[PUT /profile] Updating bio to: "${bio}"`);
         }
 
+        // --- Handle Avatar Update ---
         if (req.file) {
-            console.log('PUT_USER_PROFILE_ROUTE: New avatar file uploaded:', req.file.filename);
-            const oldAvatarUrl = user.avatarUrl;
-            if (oldAvatarUrl && oldAvatarUrl.startsWith(`${BACKEND_URL}/uploads/`)) {
-                const oldAvatarFilename = path.basename(oldAvatarUrl);
-                const oldAvatarPath = path.join(__dirname, '..', 'uploads', oldAvatarFilename);
+            console.log(`[PUT /profile] New avatar detected. Saved physically at: "${req.file.path}"`);
+
+            const oldAvatarPathFromDB = user.avatarUrl;
+            console.log(`[PUT /profile] Old avatar path from DB: "${oldAvatarPathFromDB}"`);
+
+            const relativePath = path.join('avatars', req.file.filename).replace(/\\/g, '/');
+            const fullAvatarUrl = `${BACKEND_URL}/uploads/${relativePath}`;
+            user.avatarUrl = fullAvatarUrl; // <-- Directly store full URL in DB
+            console.log(`[PUT /profile] New avatar full URL stored in DB: "${fullAvatarUrl}"`);
+
+            // Check if old avatar needs to be deleted
+            const isDefaultAvatar = oldAvatarPathFromDB && oldAvatarPathFromDB.includes('userLogo.png');
+            const isSocialAvatar = oldAvatarPathFromDB && (oldAvatarPathFromDB.startsWith('http://') || oldAvatarPathFromDB.startsWith('https://'));
+
+            if (oldAvatarPathFromDB && !isDefaultAvatar && !isSocialAvatar) {
                 try {
-                    await fs.unlink(oldAvatarPath);
-                    console.log(`PUT_USER_PROFILE_ROUTE: Deleted old custom avatar: ${oldAvatarPath}`);
+                    const oldPathInUploads = oldAvatarPathFromDB.replace(`${BACKEND_URL}/uploads/`, '');
+                    const fullOldAvatarPhysicalPath = path.join(__dirname, '..', 'uploads', oldPathInUploads);
+                    await fs.access(fullOldAvatarPhysicalPath);
+                    await fs.unlink(fullOldAvatarPhysicalPath);
+                    console.log('[PUT /profile] Old avatar deleted successfully.');
                 } catch (unlinkError) {
-                    if (unlinkError.code === 'ENOENT') {
-                        console.warn(`PUT_USER_PROFILE_ROUTE: Old avatar file not found, skipping deletion: ${oldAvatarPath}`);
-                    } else {
-                        console.error('PUT_USER_PROFILE_ROUTE: Error deleting old avatar:', unlinkError.message);
-                    }
+                    console.warn('[PUT /profile] Old avatar file not found or error deleting:', unlinkError);
                 }
-            } else if (oldAvatarUrl) {
-                console.log('PUT_USER_PROFILE_ROUTE: Replacing external/default avatar with custom upload.');
+            } else {
+                console.log('[PUT /profile] Old avatar was default or external, not deleting.');
             }
-            user.avatarUrl = `uploads/${req.file.filename}`;
-            console.log('PUT_USER_PROFILE_ROUTE: New avatar set to (relative path):', user.avatarUrl);
         }
 
-        await user.save();
+        await user.save(); // Save the updated user document to MongoDB
 
-        res.status(200).json({
-            message: 'Profile updated successfully!',
+        // Construct the response object with the full, publicly accessible avatar URL
+        const updatedUserResponse = {
             _id: user._id,
             name: user.name,
+            email: user.email,
             bio: user.bio,
-            avatarUrl: getFullAvatarUrl(user.avatarUrl),
+            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Convert DB path to full URL for the client
             firebaseUid: user.firebaseUid,
-        });
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        };
+        console.log('[PUT /profile] Profile updated successfully. Sending response:', updatedUserResponse);
+        res.status(200).json(updatedUserResponse);
 
     } catch (error) {
-        console.error('PUT_USER_PROFILE_ROUTE: Error updating user profile:', error.message);
+        console.error('[PUT /profile] Fatal error during profile update:', error);
+        // If an error occurred after a new file was uploaded but before user.save(), delete the new file
         if (req.file) {
-            await fs.unlink(req.file.path).catch(err => console.error('Error deleting newly uploaded file after update failure:', err));
+            await fs.unlink(req.file.path).catch(err => console.error('[PUT /profile] Error deleting newly uploaded file after update failure:', err));
         }
         res.status(500).json({ message: 'Internal server error updating profile.', error: error.message });
     }
 });
 
-// --- Social Features Routes ---
 
-// NEW: Get following list for a user (by MongoDB ID)
+// --- Social Features Routes (rest of your existing routes) ---
 router.get('/:userId/following', userController.getFollowing);
-
-// NEW: Get followers list for a user (by MongoDB ID)
 router.get('/:userId/followers', userController.getFollowers);
-
-
 router.get('/me/relationships', async (req, res, next) => {
     try {
         const userId = req.user._id;
-
         const user = await User.findById(userId)
             .select('following pendingSentRequests pendingReceivedRequests')
             .lean();
-
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
-
         res.json({
             following: user.following.map(id => id.toString()),
             pendingSentRequests: user.pendingSentRequests.map(id => id.toString()),
@@ -1049,45 +1078,35 @@ router.post('/:targetUserId/follow', async (req, res, next) => {
     try {
         const currentUserId = req.user._id;
         const targetUserId = req.params.targetUserId;
-
         if (currentUserId.toString() === targetUserId.toString()) {
             return res.status(400).json({ message: "You cannot follow yourself." });
         }
-
         const currentUser = await User.findById(currentUserId);
         const targetUser = await User.findById(targetUserId);
-
         if (!currentUser || !targetUser) {
             return res.status(404).json({ message: "User not found." });
         }
-
         if (currentUser.following.includes(targetUserId)) {
             return res.status(409).json({ message: "Already following this user." });
         }
-
         if (currentUser.pendingSentRequests.includes(targetUserId) || targetUser.pendingReceivedRequests.includes(currentUserId)) {
             return res.status(409).json({ message: "Follow request already pending." });
         }
-
         currentUser.pendingSentRequests.push(targetUserId);
         await currentUser.save();
-
         targetUser.pendingReceivedRequests.push(currentUserId);
         await targetUser.save();
-
         const io = req.app.get('socketio');
         if (io) {
             io.to(targetUserId.toString()).emit('newFollowRequest', {
                 senderId: currentUserId,
                 senderName: currentUser.name,
-                senderAvatarUrl: getFullAvatarUrl(currentUser.avatarUrl),
+                senderAvatarUrl: getFullAvatarUrl(currentUser.avatarUrl), // Use helper here
                 message: `${currentUser.name} sent you a follow request.`,
             });
             console.log(`Socket.IO: Emitted newFollowRequest to user ${targetUserId}`);
         }
-
         res.status(200).json({ message: 'Follow request sent successfully.' });
-
     } catch (error) {
         console.error('Error sending follow request:', error);
         next(error);
@@ -1095,57 +1114,33 @@ router.post('/:targetUserId/follow', async (req, res, next) => {
 });
 
 router.get('/by-firebase-uid/:firebaseUid', userController.getMongoUserByFirebaseUid);
-
-
-
 router.post('/many', userController.getManyUserDetails);
 
-// router.get('/search', async (req, res) => { // Removed 'protect' here
-//     try {
-//         const query = req.query.q;
-//         if (!query) {
-//             return res.status(400).json({ message: 'Search query is required.' });
-//         }
-
-//         // Case-insensitive search on 'name' field
-//         const users = await User.find(
-//             { name: { $regex: query, $options: 'i' } },
-//             'name avatarUrl' // Select only name and avatarUrl
-//         ).limit(10); // Limit results
-
-//         res.json(users);
-//     } catch (error) {
-//         console.error('Error searching users:', error);
-//         res.status(500).json({ message: 'Server error' });
-//     }
-// });
-
 router.get('/search', async (req, res) => {
-  try {
-    const query = req.query.q;
-    if (!query) return res.status(400).json({ message: 'Search query is required.' });
+    try {
+        const query = req.query.q;
+        if (!query) return res.status(400).json({ message: 'Search query is required.' });
 
-    const users = await User.find(
-      { name: { $regex: query, $options: 'i' } },
-      'firebaseUid name avatarUrl'
-    ).limit(10);
+        const users = await User.find(
+            { name: { $regex: query, $options: 'i' } },
+            'firebaseUid name avatarUrl'
+        ).limit(10);
 
-    console.log('[SEARCH API] Found users:', users);
+        console.log('[SEARCH API] Found users:', users);
 
-    const result = users.map(user => ({
-      uid: user.firebaseUid,
-      name: user.name,
-      avatarUrl: user.avatarUrl ?? null,
-    }));
+        const result = users.map(user => ({
+            uid: user.firebaseUid,
+            name: user.name,
+            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Use helper here for search results
+        }));
 
-    console.log('[SEARCH API] Sending result:', result);
+        console.log('[SEARCH API] Sending result:', result);
 
-    res.json(result);
-  } catch (error) {
-    console.error('[SEARCH API ERROR]:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+        res.json(result);
+    } catch (error) {
+        console.error('[SEARCH API ERROR]:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
 });
-
 
 module.exports = router;

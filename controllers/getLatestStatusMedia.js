@@ -80,7 +80,7 @@
 //     if (status.filename) {
 //       filename = status.filename;
 //     } else if (status.mediaUrl) {
-//       // Extract filename from URL like: http://localhost:5001/uploads/statuses/filename.jpg
+//       // Extract filename from URL like: https://vartalaap-r36o.onrender.com/uploads/statuses/filename.jpg
 //       filename = path.basename(status.mediaUrl);
 //     } else {
 //       return res.status(404).json({ message: 'Media file reference not found' });

@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+.env.*
+
+# Firebase service account key
+vartalaap45-firebase-adminsdk-fbsvc-f81299f818.json
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Thumbnails and system files
+.DS_Store
+Thumbs.db
+
+# Other common ignored files (if they appear in your project)
+/dist
+/build
+/coverage
+*.tgz
+.vscode/ 

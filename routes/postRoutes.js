@@ -10,7 +10,7 @@
 
 // // Define the base URL for the backend to correctly generate media URLs
 // // IMPORTANT: This should be used when *sending* URLs to the client, not when storing paths.
-// const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+// const BACKEND_URL = process.env.BACKEND_URL || 'https://vartalaap-r36o.onrender.com';
 
 // // Multer storage configuration
 // const storage = multer.diskStorage({
@@ -493,7 +493,7 @@
 // //         const commentToReturn = comment.toObject();
 // //         const originalAvatarUrl = commentToReturn.author.avatarUrl;
 // //         // Assuming BACKEND_URL is defined somewhere accessible here (e.g., in your config)
-// //         const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001'; // Make sure this is correctly defined
+// //         const BACKEND_URL = process.env.BACKEND_URL || 'https://vartalaap-r36o.onrender.com'; // Make sure this is correctly defined
 
 // //         if (originalAvatarUrl && !originalAvatarUrl.startsWith('http') && !originalAvatarUrl.startsWith('data:')) {
 // //             commentToReturn.author.avatarUrl = `<span class="math-inline">\{BACKEND\_URL\}</span>{originalAvatarUrl.startsWith('/') ? originalAvatarUrl : '/' + originalAvatarUrl}`;
@@ -575,7 +575,7 @@
 // const authenticate = require('../middleware/authMiddleware'); // Use our unified authenticate middleware
 
 // // Define the base URL for the backend to correctly generate media URLs
-// const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+// const BACKEND_URL = process.env.BACKEND_URL || 'https://vartalaap-r36o.onrender.com';
 
 // // Multer storage configuration
 // const storage = multer.diskStorage({
@@ -1029,9 +1029,9 @@ const User = require('../models/User.js'); // Ensure this path is correct
 const authenticate = require('../middleware/authMiddleware'); // Use our unified authenticate middleware
 
 // Define the base URL for the backend to correctly generate media URLs
-// Make sure this matches your backend server's base URL (e.g., http://localhost:5001)
+// Make sure this matches your backend server's base URL (e.g., https://vartalaap-r36o.onrender.com)
 // It should NOT end with a slash, as the helper function will add it.
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.BACKEND_URL || 'https://vartalaap-r36o.onrender.com';
 
 // Multer storage configuration
 const storage = multer.diskStorage({

@@ -235,7 +235,7 @@ const FollowRequest = require('../models/FollowRequest'); // Assuming you have t
 
 // --- IMPORTANT: Ensure this matches your frontend's MEDIA_BASE_URL ---
 // This is used to construct full URLs for avatars/media from relative paths
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://vartalaap-r36o.onrender.com';
 
 // Helper function to construct full URL for avatars
 const getFullAvatarUrl = (avatarPath) => {
