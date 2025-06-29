@@ -393,7 +393,7 @@ app.use('/api/chats', chatRoutes);
 // --- Socket.IO ---
 const io = socketIo(server, {
     cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000', // Use FRONTEND_URL
+        origin: process.env.FRONTEND_URL || 'https://vartalaap-sable.vercel.app', // Use FRONTEND_URL
         // origin: '*', // AVOID '*' in production. Use specific URLs.
         methods: ['GET', 'POST'],
         credentials: true
