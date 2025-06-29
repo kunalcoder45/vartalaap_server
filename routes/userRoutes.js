@@ -876,179 +876,106 @@ const userController = require('../controllers/userController');
 
 // --- IMPORTANT: Ensure this matches your frontend's environment variable ---
 // This is used to construct full URLs for avatars/media from relative paths
-const BACKEND_URL = process.env.BACKEND_URL || 'http;//://localhost:5001'; // Default to localhost for local development
+const BACKEND_URL = process.env.BACKEND_URL; // Default to localhost for local development
 console.log(`[UserRoutes Init] Backend URL configured as: ${BACKEND_URL}`);
 // Helper function to construct full URL for avatars
-// This function needs to be robust for various avatar source types
-const getFullAvatarUrl = (avatarPathFromDB) => {
-    console.log(`[getFullAvatarUrl] Input path from DB: "${avatarPathFromDB}"`);
 
-    if (!avatarPathFromDB) {
-        // If no avatar is set or path is empty, return the default user logo URL.
-        // This maps to 'backend/public/avatars/userLogo.png' via '/avatars' static route in app.js.
-        const defaultUrl = `${BACKEND_URL}/avatars/userLogo.png`;
-        console.log(`[getFullAvatarUrl] No avatarPathFromDB, returning default URL: "${defaultUrl}"`);
-        return defaultUrl;
-    }
-
-    if (avatarPathFromDB.startsWith('http://') || avatarPathFromDB.startsWith('https://')) {
-        // If the path is already an absolute URL (e.g., from social login), return it as is.
-        console.log(`[getFullAvatarUrl] Path is already an absolute URL, returning: "${avatarPathFromDB}"`);
-        return avatarPathFromDB;
-    }
-
-    // For relative paths stored in the DB (e.g., 'avatars/filename.jpg' or 'statuses/filename.mp4').
-    // We prepend '/uploads/' because that's the URL prefix for the `uploadsBaseDir` static middleware in `app.js`.
-    // Normalize path separators for URLs (Windows uses '\', URLs use '/')
-    const normalizedPath = avatarPathFromDB.replace(/\\/g, '/');
-    const fullUrl = `${BACKEND_URL}/uploads/${normalizedPath}`;
-    console.log(`[getFullAvatarUrl] Converted relative path "${avatarPathFromDB}" to full URL: "${fullUrl}"`);
-    return fullUrl;
+// Helper to return avatar URL (in Cloudinary case, it's stored as full URL in DB)
+const getFullAvatarUrl = (avatarUrlFromDB) => {
+  if (!avatarUrlFromDB) {
+    // default avatar stored in your public assets or Cloudinary
+    return 'https://res.cloudinary.com/YOUR_CLOUD_NAME/image/upload/v0000000000/avatars/userLogo.png';
+  }
+  if (avatarUrlFromDB.startsWith('http://') || avatarUrlFromDB.startsWith('https://')) {
+    return avatarUrlFromDB; // Already full URL
+  }
+  // Fallback — should rarely happen if you store full URL in DB
+  return avatarUrlFromDB;
 };
 
-// Apply authMiddleware to all routes in this router that require authentication
-// This means req.user will be populated for all subsequent routes
+// All routes require auth
 router.use(authMiddleware);
 
-// --- Profile Management Routes ---
+// Get authenticated user's profile
 router.get('/profile', async (req, res) => {
-    console.log('GET_AUTH_USER_PROFILE_ROUTE: Attempting to fetch authenticated user profile.');
-    console.log('GET_AUTH_USER_PROFILE_ROUTE: req.user (from authMiddleware):', req.user ? req.user._id : 'Not populated');
+  try {
+    const user = req.user;
+    if (!user) return res.status(404).json({ message: 'User not found.' });
 
-    try {
-        const user = req.user; // User is already populated by authMiddleware
-
-        if (!user) {
-            return res.status(404).json({ message: 'Authenticated user not found in database. Please ensure profile is synced.' });
-        }
-
-        res.status(200).json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            bio: user.bio,
-            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Use helper here
-            firebaseUid: user.firebaseUid,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        });
-    } catch (error) {
-        console.error('GET_AUTH_USER_PROFILE_ROUTE: Error fetching user profile:', error.message);
-        res.status(500).json({ message: 'Internal server error fetching your profile.', error: error.message });
-    }
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      bio: user.bio,
+      avatarUrl: getFullAvatarUrl(user.avatarUrl),
+      firebaseUid: user.firebaseUid,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (err) {
+    console.error('Error getting profile:', err);
+    res.status(500).json({ message: 'Server error.' });
+  }
 });
 
-router.get('/profile/:userId', async (req, res) => {
-    console.log('GET_SPECIFIC_USER_PROFILE_ROUTE: Attempting to fetch specific user profile.');
-    console.log('GET_SPECIFIC_USER_PROFILE_ROUTE: req.params.userId:', req.params.userId);
-
-    try {
-        const targetUserId = req.params.userId;
-        const user = await User.findById(targetUserId).select('name avatarUrl email bio');
-
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        res.status(200).json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            bio: user.bio,
-            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Use helper here
-        });
-    } catch (error) {
-        console.error('GET_SPECIFIC_USER_PROFILE_ROUTE: Error fetching specific user profile:', error.message);
-        res.status(500).json({ message: 'Internal server error fetching specific profile.', error: error.message });
-    }
-});
-
-// Update authenticated user's profile
+// Update authenticated user's profile & avatar
 router.put('/profile', uploadAvatar.single('avatar'), async (req, res) => {
-    console.log('[PUT /profile] Entering profile update route.');
-    console.log('[PUT /profile] User ID from authMiddleware (req.user._id):', req.user ? req.user._id : 'Not available');
-    console.log('[PUT /profile] Request Body (name, bio):', req.body);
-    console.log('[PUT /profile] File details from Multer (req.file):', req.file); // Will be undefined if no file uploaded
-
-    try {
-        const user = req.user; // Authenticated user from authMiddleware
-
-        if (!user) {
-            console.warn('[PUT /profile] User not authenticated during profile update attempt.');
-            // If authentication failed, clean up any uploaded file immediately
-            if (req.file) {
-                await fs.unlink(req.file.path).catch(err => console.error('[PUT /profile] Error deleting newly uploaded file due to unauthenticated user:', err));
-            }
-            return res.status(401).json({ message: 'Authentication required to update profile.' });
-        }
-
-        const { name, bio } = req.body;
-
-        // Update name and bio if provided in the request body
-        if (name !== undefined) {
-            user.name = name;
-            console.log(`[PUT /profile] Updating name to: "${name}"`);
-        }
-        if (bio !== undefined) {
-            user.bio = bio;
-            console.log(`[PUT /profile] Updating bio to: "${bio}"`);
-        }
-
-        // --- Handle Avatar Update ---
-        if (req.file) {
-            console.log(`[PUT /profile] New avatar detected. Saved physically at: "${req.file.path}"`);
-
-            const oldAvatarPathFromDB = user.avatarUrl;
-            console.log(`[PUT /profile] Old avatar path from DB: "${oldAvatarPathFromDB}"`);
-
-            const relativePath = path.join('avatars', req.file.filename).replace(/\\/g, '/');
-            const fullAvatarUrl = `${BACKEND_URL}/uploads/${relativePath}`;
-            user.avatarUrl = fullAvatarUrl; // <-- Directly store full URL in DB
-            console.log(`[PUT /profile] New avatar full URL stored in DB: "${fullAvatarUrl}"`);
-
-            // Check if old avatar needs to be deleted
-            const isDefaultAvatar = oldAvatarPathFromDB && oldAvatarPathFromDB.includes('userLogo.png');
-            const isSocialAvatar = oldAvatarPathFromDB && (oldAvatarPathFromDB.startsWith('http://') || oldAvatarPathFromDB.startsWith('https://'));
-
-            if (oldAvatarPathFromDB && !isDefaultAvatar && !isSocialAvatar) {
-                try {
-                    const oldPathInUploads = oldAvatarPathFromDB.replace(`${BACKEND_URL}/uploads/`, '');
-                    const fullOldAvatarPhysicalPath = path.join(__dirname, '..', 'uploads', oldPathInUploads);
-                    await fs.access(fullOldAvatarPhysicalPath);
-                    await fs.unlink(fullOldAvatarPhysicalPath);
-                    console.log('[PUT /profile] Old avatar deleted successfully.');
-                } catch (unlinkError) {
-                    console.warn('[PUT /profile] Old avatar file not found or error deleting:', unlinkError);
-                }
-            } else {
-                console.log('[PUT /profile] Old avatar was default or external, not deleting.');
-            }
-        }
-
-        await user.save(); // Save the updated user document to MongoDB
-
-        // Construct the response object with the full, publicly accessible avatar URL
-        const updatedUserResponse = {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            bio: user.bio,
-            avatarUrl: getFullAvatarUrl(user.avatarUrl), // Convert DB path to full URL for the client
-            firebaseUid: user.firebaseUid,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        };
-        console.log('[PUT /profile] Profile updated successfully. Sending response:', updatedUserResponse);
-        res.status(200).json(updatedUserResponse);
-
-    } catch (error) {
-        console.error('[PUT /profile] Fatal error during profile update:', error);
-        // If an error occurred after a new file was uploaded but before user.save(), delete the new file
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => console.error('[PUT /profile] Error deleting newly uploaded file after update failure:', err));
-        }
-        res.status(500).json({ message: 'Internal server error updating profile.', error: error.message });
+  try {
+    const user = req.user;
+    if (!user) {
+      // If file was uploaded but user not authenticated, delete from Cloudinary
+      if (req.file) {
+        await cloudinary.uploader.destroy(req.file.filename || req.file.public_id);
+      }
+      return res.status(401).json({ message: 'Authentication required.' });
     }
+
+    const { name, bio } = req.body;
+    if (name !== undefined) user.name = name;
+    if (bio !== undefined) user.bio = bio;
+
+    if (req.file && req.file.path) {
+      const oldAvatarUrl = user.avatarUrl;
+
+      // Save Cloudinary URL (req.file.path is the secure_url)
+      user.avatarUrl = req.file.path;
+
+      // Delete old avatar from Cloudinary if not default or external
+      const isSocial = oldAvatarUrl && (oldAvatarUrl.startsWith('http://') || oldAvatarUrl.startsWith('https://'));
+      const isDefault = oldAvatarUrl && oldAvatarUrl.includes('userLogo.png');
+
+      if (oldAvatarUrl && !isSocial && !isDefault) {
+        // Extract public_id from old URL:
+        // Cloudinary URLs like: https://res.cloudinary.com/<cloud_name>/image/upload/v1234567/avatars/avatar-123.jpg
+        // We need "avatars/avatar-123" to delete
+        try {
+          const urlParts = oldAvatarUrl.split('/');
+          const fileNameWithExt = urlParts[urlParts.length - 1]; // avatar-123.jpg
+          const publicId = `avatars/${fileNameWithExt.split('.')[0]}`;
+          await cloudinary.uploader.destroy(publicId);
+          console.log('[Profile Update] Deleted old avatar from Cloudinary:', publicId);
+        } catch (err) {
+          console.warn('[Profile Update] Failed to delete old avatar:', err);
+        }
+      }
+    }
+
+    await user.save();
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      bio: user.bio,
+      avatarUrl: getFullAvatarUrl(user.avatarUrl),
+      firebaseUid: user.firebaseUid,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ message: 'Server error updating profile.' });
+  }
 });
 
 

@@ -1,4 +1,3 @@
-// server/models/User.js
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -19,6 +18,13 @@ const userSchema = new mongoose.Schema({
         unique: true,
         lowercase: true,
     },
+    username: { // ADDED: Username field for unique handles
+        type: String,
+        unique: true,
+        sparse: true, // Allows null values, but unique for non-nulls
+        trim: true,
+        lowercase: true, // Optional: ensures usernames are always lowercase
+    },
     avatarUrl: {
         type: String,
         default: '/avatars/default-avatar.png',
@@ -36,29 +42,30 @@ const userSchema = new mongoose.Schema({
     following: [
         {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'User' // Correctly references the 'User' model
+            ref: 'User'
         }
     ],
     followers: [
         {
             type: mongoose.Schema.Types.ObjectId,
-            ref: 'User' // Correctly references the 'User' model
+            ref: 'User'
+        }
+    ],
+    pendingSentRequests: [ // ADDED: For follow requests
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }
+    ],
+    pendingReceivedRequests: [ // ADDED: For follow requests
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         }
     ],
     // --- End social fields ---
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    }
 }, { timestamps: true }); // `timestamps: true` automatically handles createdAt and updatedAt
 
-userSchema.pre('save', function(next) {
-    this.updatedAt = Date.now(); // Ensures updatedAt is explicitly set on every save
-    next();
-});
+// Removed redundant userSchema.pre('save') for updatedAt, as timestamps: true handles it.
 
 module.exports = mongoose.models.User || mongoose.model('User', userSchema);
