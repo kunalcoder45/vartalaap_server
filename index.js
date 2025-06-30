@@ -308,7 +308,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
-const fs = require('fs'); // Use fs for sync mkdir checks
+const fs = require('fs');
 require('dotenv').config();
 require('./firebase-admin-config');
 
@@ -332,9 +332,7 @@ mongoose.connect(process.env.MONGO_URI)
     .catch(err => console.error('MongoDB connection error:', err));
 
 // --- Ensure Directories Exist ---
-// This is the base directory for all user-uploaded content (avatars, statuses, etc.)
 const uploadsBaseDir = path.join(__dirname, 'uploads');
-// This is for static default assets like 'userLogo.png'
 const defaultAvatarsPublicDir = path.join(__dirname, 'public', 'avatars');
 
 const ensureDirectoryExists = (dir) => {
@@ -345,18 +343,28 @@ const ensureDirectoryExists = (dir) => {
 };
 
 ensureDirectoryExists(uploadsBaseDir);
-ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars')); // CRUCIAL: Ensure backend/uploads/avatars exists
+ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars'));
 ensureDirectoryExists(path.join(uploadsBaseDir, 'statuses'));
 ensureDirectoryExists(defaultAvatarsPublicDir);
 
 
-// --- Middleware ---
+// --- CORS Configuration (Unified for Express and Socket.IO) ---
+const allowedOrigins = [
+    'http://localhost:3000', // Your local development URL
+    'https://49ph994c-3000.inc1.devtunnels.ms', // Your devtunnel URL
+    process.env.FRONTEND_URL // Your production Vercel URL
+].filter(Boolean); // Filter out any empty strings
+
 app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'https://49ph994c-3000.inc1.devtunnels.ms', // Your devtunnel
-        process.env.FRONTEND_URL // Use the environment variable for production
-    ].filter(Boolean), // Filter out empty strings if env var is not set
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     credentials: true,
     exposedHeaders: ['Content-Range', 'Content-Type', 'Content-Length'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -366,23 +374,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // --- Static File Serving ---
-// This serves all dynamically uploaded files (including avatars from 'uploads/avatars')
-// at the /uploads URL path.
-// Example: if a file is at backend/uploads/avatars/my_avatar.png,
-// it will be accessible at YOUR_BACKEND_URL/uploads/avatars/my_avatar.png
 app.use('/uploads', express.static(uploadsBaseDir));
-
-// This serves static, pre-defined avatars (like userLogo.png)
-// at the /avatars URL path.
-// Example: if userLogo.png is at backend/public/avatars/userLogo.png,
-// it will be accessible at YOUR_BACKEND_URL/avatars/userLogo.png
 app.use('/avatars', express.static(defaultAvatarsPublicDir));
 
 
 // --- API Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/user', userRoutes); // Often redundant if /api/users covers everything
+app.use('/api/user', userRoutes); // Consider removing if /api/users is sufficient
 app.use('/api/posts', postRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/follow', followRoutes);
@@ -393,15 +392,24 @@ app.use('/api/chats', chatRoutes);
 // --- Socket.IO ---
 const io = socketIo(server, {
     cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000', // Use FRONTEND_URL
-        // origin: '*', // AVOID '*' in production. Use specific URLs.
+        // origin: function (origin, callback) {
+        //     // Allow requests with no origin (like mobile apps or curl requests)
+        //     if (!origin) return callback(null, true);
+        //     if (allowedOrigins.indexOf(origin) === -1) {
+        //         const msg = `The CORS policy for this site does not allow Socket.IO access from the specified Origin: ${origin}`;
+        //         return callback(new Error(msg), false);
+        //     }
+        //     return callback(null, true);
+        // },
+        origin: {'*': true}, // Allow all origins for Socket.IO
+        allowedHeaders: ['Content-Type'],
         methods: ['GET', 'POST'],
         credentials: true
     }
 });
 
 require('./socket/socketHandlers')(io); // custom socket logic including calls
-app.set('io', io);
+app.set('io', io); // Make 'io' instance available to routes if needed
 
 // --- Health Check ---
 app.get('/', (req, res) => {
