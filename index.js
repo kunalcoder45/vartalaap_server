@@ -302,15 +302,330 @@
 
 
 
+// const express = require('express');
+// const mongoose = require('mongoose');
+// const cors = require('cors');
+// const path = require('path');
+// const http = require('http');
+// const socketIo = require('socket.io');
+// const fs = require('fs');
+// require('dotenv').config();
+// require('./firebase-admin-config');
+
+// // Route Imports
+// const authRoutes = require('./routes/authRoutes');
+// const userRoutes = require('./routes/userRoutes');
+// const postRoutes = require('./routes/postRoutes');
+// const groupRoutes = require('./routes/groupRoutes');
+// const followRoutes = require('./routes/followRoutes');
+// const notificationRoutes = require('./routes/notificationRoutes');
+// const statusRoutes = require('./routes/statusRoutes');
+// const chatRoutes = require('./routes/chatRoutes');
+
+// const app = express();
+// const server = http.createServer(app);
+// const PORT = process.env.PORT || 5001;
+
+// // --- MongoDB Connection ---
+// mongoose.connect(process.env.MONGO_URI)
+//     .then(() => console.log('MongoDB Connected'))
+//     .catch(err => console.error('MongoDB connection error:', err));
+
+// // --- Ensure Directories Exist ---
+// const uploadsBaseDir = path.join(__dirname, 'uploads');
+// const defaultAvatarsPublicDir = path.join(__dirname, 'public', 'avatars');
+
+// const ensureDirectoryExists = (dir) => {
+//     if (!fs.existsSync(dir)) {
+//         fs.mkdirSync(dir, { recursive: true });
+//         console.log(`[App] Created directory: ${dir}`);
+//     }
+// };
+
+// ensureDirectoryExists(uploadsBaseDir);
+// ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars'));
+// ensureDirectoryExists(path.join(uploadsBaseDir, 'statuses'));
+// ensureDirectoryExists(defaultAvatarsPublicDir);
+
+
+// // --- CORS Configuration (Unified for Express and Socket.IO) ---
+// const allowedOrigins = [
+//     'http://localhost:3000', // Your local development URL
+//     'https://49ph994c-3000.inc1.devtunnels.ms', // Your devtunnel URL
+//     process.env.FRONTEND_URL // Your production Vercel URL
+// ].filter(Boolean); // Filter out any empty strings
+
+// app.use(cors({
+//     origin: function (origin, callback) {
+//         // Allow requests with no origin (like mobile apps or curl requests)
+//         if (!origin) return callback(null, true);
+//         if (allowedOrigins.indexOf(origin) === -1) {
+//             const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+//             return callback(new Error(msg), false);
+//         }
+//         return callback(null, true);
+//     },
+//     credentials: true,
+//     exposedHeaders: ['Content-Range', 'Content-Type', 'Content-Length'],
+//     allowedHeaders: ['Content-Type', 'Authorization'],
+// }));
+
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+
+// // --- Static File Serving ---
+// app.use('/uploads', express.static(uploadsBaseDir));
+// app.use('/avatars', express.static(defaultAvatarsPublicDir));
+
+
+// // --- API Routes ---
+// app.use('/api/auth', authRoutes);
+// app.use('/api/users', userRoutes);
+// app.use('/api/user', userRoutes); // Consider removing if /api/users is sufficient
+// app.use('/api/posts', postRoutes);
+// app.use('/api/groups', groupRoutes);
+// app.use('/api/follow', followRoutes);
+// app.use('/api/notifications', notificationRoutes);
+// app.use('/api/status', statusRoutes);
+// app.use('/api/chats', chatRoutes);
+
+// // --- Socket.IO ---
+// const io = socketIo(server, {
+//     cors: {
+//         // origin: function (origin, callback) {
+//         //     // Allow requests with no origin (like mobile apps or curl requests)
+//         //     if (!origin) return callback(null, true);
+//         //     if (allowedOrigins.indexOf(origin) === -1) {
+//         //         const msg = `The CORS policy for this site does not allow Socket.IO access from the specified Origin: ${origin}`;
+//         //         return callback(new Error(msg), false);
+//         //     }
+//         //     return callback(null, true);
+//         // },
+//         origin: {'*': true}, // Allow all origins for Socket.IO
+//         allowedHeaders: ['Content-Type'],
+//         methods: ['GET', 'POST'],
+//         credentials: true
+//     }
+// });
+
+// require('./socket/socketHandlers')(io); // custom socket logic including calls
+// app.set('io', io); // Make 'io' instance available to routes if needed
+
+// // --- Health Check ---
+// app.get('/', (req, res) => {
+//     res.send('Unified Social App Backend is Running!');
+// });
+
+// // --- Debug Uploads Route (Helpful for verifying directory and files) ---
+// app.get('/api/debug/uploads', (req, res) => {
+//     try {
+//         const avatarsFiles = fs.readdirSync(path.join(uploadsBaseDir, 'avatars'));
+//         const statusesFiles = fs.readdirSync(path.join(uploadsBaseDir, 'statuses'));
+//         res.json({
+//             uploadsBasePath: uploadsBaseDir,
+//             avatarsPath: path.join(uploadsBaseDir, 'avatars'),
+//             statusesPath: path.join(uploadsBaseDir, 'statuses'),
+//             avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
+//             statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
+//             avatarsFiles: avatarsFiles,
+//             statusesFiles: statusesFiles,
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             uploadsBasePath: uploadsBaseDir,
+//             error: error.message,
+//             message: 'Error reading uploads directories. Check permissions.',
+//             avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
+//             statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
+//         });
+//     }
+// });
+
+// // --- Error Handling ---
+// app.use((err, req, res, next) => {
+//     console.error('Global Error:', err.stack);
+//     res.status(err.statusCode || 500).json({
+//         message: err.message || 'Internal Server Error',
+//         error: process.env.NODE_ENV === 'development' ? err.stack : {}
+//     });
+// });
+
+// // --- 404 Fallback ---
+// app.use((req, res) => {
+//     res.status(404).json({ message: `Not Found - ${req.originalUrl}` });
+// });
+
+// server.listen(PORT, () => {
+//     console.log(`Server started on port ${PORT}`);
+//     console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+// });
+
+
+
+// const express = require('express');
+// const mongoose = require('mongoose');
+// const cors = require('cors');
+// const path = require('path');
+// const http = require('http');
+// const socketIo = require('socket.io');
+// const fs = require('fs');
+// require('dotenv').config();
+// require('./firebase-admin-config');
+
+// // Route Imports
+// const authRoutes = require('./routes/authRoutes');
+// const userRoutes = require('./routes/userRoutes');
+// const postRoutes = require('./routes/postRoutes');
+// const groupRoutes = require('./routes/groupRoutes');
+// const followRoutes = require('./routes/followRoutes');
+// const notificationRoutes = require('./routes/notificationRoutes');
+// const statusRoutes = require('./routes/statusRoutes');
+// const chatRoutes = require('./routes/chatRoutes');
+
+// const app = express();
+// const server = http.createServer(app);
+// const PORT = process.env.PORT || 5001;
+
+// // --- MongoDB Connection ---
+// mongoose.connect(process.env.MONGO_URI)
+//     .then(() => console.log('✅ MongoDB Connected'))
+//     .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// // --- Ensure Upload Directories Exist ---
+// const uploadsBaseDir = path.join(__dirname, 'uploads');
+// const defaultAvatarsPublicDir = path.join(__dirname, 'public', 'avatars');
+
+// const ensureDirectoryExists = (dir) => {
+//     if (!fs.existsSync(dir)) {
+//         fs.mkdirSync(dir, { recursive: true });
+//         console.log(`📁 Created directory: ${dir}`);
+//     }
+// };
+
+// ensureDirectoryExists(uploadsBaseDir);
+// ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars'));
+// ensureDirectoryExists(path.join(uploadsBaseDir, 'statuses'));
+// ensureDirectoryExists(defaultAvatarsPublicDir);
+
+// // --- CORS Configuration (Unified for Express and Socket.IO) ---
+// const allowedOrigins = [
+//     'http://localhost:3000',
+//     'https://49ph994c-3000.inc1.devtunnels.ms',
+//     process.env.FRONTEND_URL
+// ].filter(Boolean);
+
+// app.use(cors({
+//     origin: function (origin, callback) {
+//         if (!origin) return callback(null, true);
+//         if (!allowedOrigins.includes(origin)) {
+//             console.warn(`❌ [CORS BLOCKED]: ${origin}`);
+//             return callback(new Error(`CORS not allowed for ${origin}`), false);
+//         }
+//         console.log(`✅ [CORS ALLOWED]: ${origin}`);
+//         return callback(null, true);
+//     },
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization'],
+//     exposedHeaders: ['Content-Type', 'Content-Length']
+// }));
+
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+
+// // --- Static File Serving ---
+// app.use('/uploads', express.static(uploadsBaseDir));
+// app.use('/avatars', express.static(defaultAvatarsPublicDir));
+
+// // --- API Routes ---
+// app.use('/api/auth', authRoutes);
+// app.use('/api/users', userRoutes);
+// app.use('/api/user', userRoutes); // Optional alias
+// app.use('/api/posts', postRoutes);
+// app.use('/api/groups', groupRoutes);
+// app.use('/api/follow', followRoutes);
+// app.use('/api/notifications', notificationRoutes);
+// app.use('/api/status', statusRoutes);
+// app.use('/api/chats', chatRoutes);
+
+// // --- Health Check ---
+// app.get('/', (req, res) => {
+//     res.send('🌐 Unified Social App Backend is Running!');
+// });
+
+// // --- Debug Uploads Route ---
+// app.get('/api/debug/uploads', (req, res) => {
+//     try {
+//         const avatarsFiles = fs.readdirSync(path.join(uploadsBaseDir, 'avatars'));
+//         const statusesFiles = fs.readdirSync(path.join(uploadsBaseDir, 'statuses'));
+//         res.json({
+//             uploadsBasePath: uploadsBaseDir,
+//             avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
+//             statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
+//             avatarsFiles,
+//             statusesFiles
+//         });
+//     } catch (error) {
+//         res.status(500).json({ message: 'Error reading uploads directories.', error: error.message });
+//     }
+// });
+
+// // --- Socket.IO Setup ---
+// const io = socketIo(server, {
+//     cors: {
+//         origin: allowedOrigins,
+//         methods: ['GET', 'POST'],
+//         credentials: true
+//     }
+// });
+
+// require('./socket/socketHandlers')(io); // Your custom socket logic
+// app.set('io', io); // Make io instance available in routes
+
+// // --- Global Error Handler ---
+// app.use((err, req, res, next) => {
+//     console.error('🔥 Global Error:', err.stack);
+//     res.status(err.statusCode || 500).json({
+//         message: err.message || 'Internal Server Error',
+//         error: process.env.NODE_ENV === 'development' ? err.stack : {}
+//     });
+// });
+
+// // --- 404 Fallback ---
+// app.use((req, res) => {
+//     res.status(404).json({ message: `Not Found - ${req.originalUrl}` });
+// });
+
+// // --- Start Server ---
+// server.listen(PORT, () => {
+//     console.log(`🚀 Server running on port ${PORT}`);
+//     console.log(`🔗 Frontend allowed: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+// });
+
+
+
+
+
+
+
+
+
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
-const fs = require('fs');
+// const fs = require('fs'); // Only keep if genuinely needed elsewhere for local file ops
 require('dotenv').config();
 require('./firebase-admin-config');
+
+// --- Import Multer for error handling ---
+const multer = require('multer');
+
+// --- Import Cloudinary config to ensure it's initialized ---
+const { cloudinary } = require('./config/cloudinary');
 
 // Route Imports
 const authRoutes = require('./routes/authRoutes');
@@ -328,60 +643,70 @@ const PORT = process.env.PORT || 5001;
 
 // --- MongoDB Connection ---
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.error('MongoDB connection error:', err));
+    .then(() => console.log('✅ MongoDB Connected'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// --- Ensure Directories Exist ---
-const uploadsBaseDir = path.join(__dirname, 'uploads');
-const defaultAvatarsPublicDir = path.join(__dirname, 'public', 'avatars');
+// --- Removed local upload directory management for statuses ---
+// Keep uploadsBaseDir and defaultAvatarsPublicDir only if local storage is still used for avatars or other uploads.
+// Based on your `config/cloudinary.js`, avatars also seem to be on Cloudinary,
+// so you might not need any local file system management or static serving for uploads at all.
 
-const ensureDirectoryExists = (dir) => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log(`[App] Created directory: ${dir}`);
-    }
-};
+// const uploadsBaseDir = path.join(__dirname, 'uploads');
+// const defaultAvatarsPublicDir = path.join(__dirname, 'public', 'avatars');
 
-ensureDirectoryExists(uploadsBaseDir);
-ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars'));
-ensureDirectoryExists(path.join(uploadsBaseDir, 'statuses'));
-ensureDirectoryExists(defaultAvatarsPublicDir);
+// const ensureDirectoryExists = (dir) => {
+//     if (!fs.existsSync(dir)) {
+//         fs.mkdirSync(dir, { recursive: true });
+//         console.log(`📁 Created directory: ${dir}`);
+//     }
+// };
 
+// If you're using Cloudinary for all media (avatars, statuses, posts etc.),
+// then you can safely remove all `ensureDirectoryExists` calls and static file serving for `/uploads`.
+// If `defaultAvatarsPublicDir` is for placeholder/default avatars, you might keep that part.
+// For now, I'll comment out the parts related to `uploads` and `statuses` that are no longer strictly needed.
+
+// ensureDirectoryExists(uploadsBaseDir); // Might not be needed
+// ensureDirectoryExists(path.join(uploadsBaseDir, 'avatars')); // Might not be needed
+// ensureDirectoryExists(path.join(uploadsBaseDir, 'statuses')); // Definitely not needed for Cloudinary statuses
+// ensureDirectoryExists(defaultAvatarsPublicDir); // Keep if you serve default avatars locally
 
 // --- CORS Configuration (Unified for Express and Socket.IO) ---
 const allowedOrigins = [
-    'http://localhost:3000', // Your local development URL
-    'https://49ph994c-3000.inc1.devtunnels.ms', // Your devtunnel URL
-    process.env.FRONTEND_URL // Your production Vercel URL
-].filter(Boolean); // Filter out any empty strings
+    'http://localhost:3000',
+    'https://49ph994c-3000.inc1.devtunnels.ms',
+    process.env.FRONTEND_URL
+].filter(Boolean);
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-            return callback(new Error(msg), false);
+        if (!allowedOrigins.includes(origin)) {
+            console.warn(`❌ [CORS BLOCKED]: ${origin}`);
+            return callback(new Error(`CORS not allowed for ${origin}`), false);
         }
+        console.log(`✅ [CORS ALLOWED]: ${origin}`);
         return callback(null, true);
     },
     credentials: true,
-    exposedHeaders: ['Content-Range', 'Content-Type', 'Content-Length'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Type', 'Content-Length']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // --- Static File Serving ---
-app.use('/uploads', express.static(uploadsBaseDir));
-app.use('/avatars', express.static(defaultAvatarsPublicDir));
-
+// Remove these if all media (including avatars) are served from Cloudinary.
+// If you still have some local static files (e.g., default user avatars), keep relevant lines.
+// app.use('/uploads', express.static(uploadsBaseDir));
+// app.use('/avatars', express.static(defaultAvatarsPublicDir));
 
 // --- API Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/user', userRoutes); // Consider removing if /api/users is sufficient
+app.use('/api/user', userRoutes); // Optional alias
 app.use('/api/posts', postRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/follow', followRoutes);
@@ -389,61 +714,63 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/status', statusRoutes);
 app.use('/api/chats', chatRoutes);
 
-// --- Socket.IO ---
+// --- Health Check ---
+app.get('/', (req, res) => {
+    res.send('🌐 Unified Social App Backend is Running!');
+});
+
+// --- Debug Uploads Route (UPDATED for Cloudinary status storage) ---
+app.get('/api/debug/uploads', (req, res) => {
+    try {
+        // This route is less relevant for Cloudinary-stored files.
+        // If you need to debug Cloudinary, use Cloudinary's Admin API or dashboard.
+        // For local files (e.g., default avatars if still used), this can stay.
+        // For clarity, I'm modifying it to indicate statuses are now cloud-based.
+
+        // const avatarsFiles = fs.readdirSync(path.join(uploadsBaseDir, 'avatars')); // Only if local avatars exist
+        // res.json({
+        //     message: 'Statuses are now stored on Cloudinary. Local upload debug is for other files if any.',
+        //     // uploadsBasePath: uploadsBaseDir, // Can remove if no local uploads are used
+        //     // avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')), // Can remove
+        //     // avatarsFiles, // Can remove
+        //     cloudinary_cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'Configured' : 'NOT CONFIGURED',
+        // });
+        // Keeping a simplified response.
+        res.json({
+            message: 'Local file system debug is limited as status media is stored on Cloudinary.',
+            cloudinary_status: process.env.CLOUDINARY_CLOUD_NAME ? 'Cloudinary configured.' : 'Cloudinary environment variables missing.'
+        });
+    } catch (error) {
+        // If you remove fs completely, you might not even need this catch block here.
+        res.status(500).json({ message: 'Error accessing debug info.', error: error.message });
+    }
+});
+
+// --- Socket.IO Setup ---
 const io = socketIo(server, {
     cors: {
-        // origin: function (origin, callback) {
-        //     // Allow requests with no origin (like mobile apps or curl requests)
-        //     if (!origin) return callback(null, true);
-        //     if (allowedOrigins.indexOf(origin) === -1) {
-        //         const msg = `The CORS policy for this site does not allow Socket.IO access from the specified Origin: ${origin}`;
-        //         return callback(new Error(msg), false);
-        //     }
-        //     return callback(null, true);
-        // },
-        origin: {'*': true}, // Allow all origins for Socket.IO
-        allowedHeaders: ['Content-Type'],
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true
     }
 });
 
-require('./socket/socketHandlers')(io); // custom socket logic including calls
-app.set('io', io); // Make 'io' instance available to routes if needed
+require('./socket/socketHandlers')(io); // Your custom socket logic
+app.set('io', io); // Make io instance available in routes
 
-// --- Health Check ---
-app.get('/', (req, res) => {
-    res.send('Unified Social App Backend is Running!');
-});
+// --- Global Error Handler ---
+app.use((err, req, res, next) => {
+    console.error('🔥 Global Error:', err.stack);
 
-// --- Debug Uploads Route (Helpful for verifying directory and files) ---
-app.get('/api/debug/uploads', (req, res) => {
-    try {
-        const avatarsFiles = fs.readdirSync(path.join(uploadsBaseDir, 'avatars'));
-        const statusesFiles = fs.readdirSync(path.join(uploadsBaseDir, 'statuses'));
-        res.json({
-            uploadsBasePath: uploadsBaseDir,
-            avatarsPath: path.join(uploadsBaseDir, 'avatars'),
-            statusesPath: path.join(uploadsBaseDir, 'statuses'),
-            avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
-            statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
-            avatarsFiles: avatarsFiles,
-            statusesFiles: statusesFiles,
-        });
-    } catch (error) {
-        res.status(500).json({
-            uploadsBasePath: uploadsBaseDir,
-            error: error.message,
-            message: 'Error reading uploads directories. Check permissions.',
-            avatarsExist: fs.existsSync(path.join(uploadsBaseDir, 'avatars')),
-            statusesExist: fs.existsSync(path.join(uploadsBaseDir, 'statuses')),
+    // Handle Multer specific errors
+    if (err instanceof multer.MulterError) {
+        console.error(`Multer Error caught: ${err.code} - ${err.message}`);
+        return res.status(400).json({
+            message: `File upload error: ${err.message}`,
+            code: err.code
         });
     }
-});
 
-// --- Error Handling ---
-app.use((err, req, res, next) => {
-    console.error('Global Error:', err.stack);
     res.status(err.statusCode || 500).json({
         message: err.message || 'Internal Server Error',
         error: process.env.NODE_ENV === 'development' ? err.stack : {}
@@ -455,7 +782,8 @@ app.use((req, res) => {
     res.status(404).json({ message: `Not Found - ${req.originalUrl}` });
 });
 
+// --- Start Server ---
 server.listen(PORT, () => {
-    console.log(`Server started on port ${PORT}`);
-    console.log(`Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🔗 Frontend allowed: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
 });
